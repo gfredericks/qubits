@@ -65,3 +65,15 @@
             0 (probably? q 1 0)
             1 (probably? q 0 1))))))
 
+(deftest multiple-qubit-probability-tests
+  (testing "that we can entangle two qubits"
+    (qubits [a b]
+      (H a)
+      (X b a)
+      (is (probably? a 1/2 1/2))
+      (is (probably? b 1/2 1/2))
+      (let [va (observe a)]
+        (is (case va
+              0 (probably? b 1 0)
+              1 (probably? b 0 1)))
+        (is (= (observe b) va))))))
