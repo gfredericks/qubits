@@ -113,6 +113,7 @@
       ;; observe
       (let [bit-source (observe source)
             bit-b1 (observe b1)]
+        ;; modify b2 based on observations
         (when (one? bit-b1)
           (X b2))
         (when (one? bit-source)
