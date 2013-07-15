@@ -39,7 +39,7 @@
       (is (probably? q 1 0))))
   (testing "that two H gates with a Z or a Y in between reverses probabilities"
     (are [G] (qubits [q]
-               (doto q H Z H)
+               (doto q H G H)
                (probably? q 0 1))
          Z
          Y))
