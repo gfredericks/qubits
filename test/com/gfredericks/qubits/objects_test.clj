@@ -76,4 +76,47 @@
         (is (case va
               0 (probably? b 1 0)
               1 (probably? b 0 1)))
-        (is (= (observe b) va))))))
+        (is (= (observe b) va)))))
+  (testing "This complicated thing that I worked up in my circuit app"
+    (qubits [a b]
+      (H a)
+      (Y b a)
+      (Z b a)
+      (Y b a)
+      (H a)
+      (is (probably? a 0 1))))
+  (testing "I think this tests that I defined Y correctly rather than backwards"
+    (qubits [a b]
+      (H a)
+      (Y b a)
+      ;; these next four should be equivalent to undoing Y
+      (S b a)
+      (S b a)
+      (S b a)
+      (X b a)
+      (H a)
+      (is (probably? a 1 0))))
+
+  (testing "Quantum teleportation"
+    (qubits [source b1 b2]
+      ;; initialize the source in an arbitrary state
+      (doto source H T H)
+      (is (probably? source 0.8535533905932735 0.14644660940672616))
+      (is (probably? b2 1 0))
+      ;; create the EPR pair
+      (H b1)
+      (X b2 b1)
+      (is (probably? b2 1/2 1/2))
+      ;; do the entangling thing
+      (X b1 source)
+      (H source)
+      ;; observe
+      (let [bit-source (observe source)
+            bit-b1 (observe b1)]
+        (when (one? bit-b1)
+          (X b2))
+        (when (one? bit-source)
+          (Z b2)))
+      ;; check; this doesn't quite capture everything, as the Z above
+      ;; can be skipped and this test wouldn't notice. Oh well.
+      (is (probably? b2 0.8535533905932735 0.14644660940672616)))))

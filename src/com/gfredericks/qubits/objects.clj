@@ -193,6 +193,8 @@
   (def X (single-qubit-gate-fn [[z0 z1] [z1 z0]]))
   (def Y (single-qubit-gate-fn [[z0 zi] [-zi z0]]))
   (def Z (single-qubit-gate-fn [[z1 z0] [z0 -z1]]))
+  (def S (single-qubit-gate-fn [[z1 z0] [z0 zi]]))
+  (def T (single-qubit-gate-fn [[z1 z0] [z0 (c/->PolarComplex 1 (/ c/TAU 8))]]))
   (def H (single-qubit-gate-fn [[inv-root2 inv-root2] [inv-root2 -inv-root2]])))
 
 (defn observe
