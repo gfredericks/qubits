@@ -49,7 +49,19 @@
       (is (probably? q 1 0)))))
 
 (deftest single-qubit-observation-tests
-  (qubits [q]
-    (is (zero? (observe q)))
-    (X q)
-    (is (one? (observe q)))))
+  (testing "That qubits with single possibilities observe correctly."
+    (qubits [q]
+      (is (zero? (observe q)))
+      (X q)
+      (is (one? (observe q)))))
+  (testing "That observing a qubit after an H gives sane probabilities."
+    (qubits [q]
+      (H q)
+      (is (case (observe q)
+            0 (probably? q 1 0)
+            1 (probably? q 0 1)))
+      ;; doing this twice as a regression test (a bug failed it)
+      (is (case (observe q)
+            0 (probably? q 1 0)
+            1 (probably? q 0 1))))))
+

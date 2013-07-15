@@ -95,7 +95,7 @@
 
         new-amplitudes
         (for [[vals amp] filtered-amps]
-          [vals (c/* amp (c/->real (/ normalizer)))])]
+          [vals (c/* amp (-> normalizer Math/sqrt / c/->real))])]
     [v (assoc system :amplitudes (into {} new-amplitudes))]))
 
 
