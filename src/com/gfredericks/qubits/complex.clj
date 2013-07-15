@@ -108,7 +108,10 @@
   [x]
   (RectComplex. 0 x))
 
+(defn =ish
+  [z1 z2]
+  (< (mag (- z1 z2)) 0.0000001))
+
 (defn zeroish?
-  "Do we actually have to worry about this? I don't even know."
   [z]
-  (< (mag z) 0.0000001))
+  (=ish z ZERO))
