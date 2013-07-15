@@ -46,7 +46,7 @@
   (testing "that H Y Z H reverts to initial probabilities"
     (qubits [q]
       (doto q H Y Z H)
-      (probably? q 1 0))))
+      (is (probably? q 1 0)))))
 
 (deftest single-qubit-observation-tests
   (qubits [q]
