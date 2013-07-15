@@ -140,4 +140,14 @@
        (doseq [q' (cons q controls)]
          (alter (.system q') (constantly new-system)))))))
 
-(def X (single-qubit-gate-fn [[c/ZERO c/ONE] [c/ONE c/ZERO]]))
+(let [z0 c/ZERO
+      z1 c/ONE
+      zi c/I
+      -zi (c/- zi)
+      -z1 (c/- z1)
+      inv-root2 (c/->real (/ (Math/sqrt 2)))
+      -inv-root2 (c/- inv-root2)]
+  (def X (single-qubit-gate-fn [[z0 z1] [z1 z0]]))
+  (def Y (single-qubit-gate-fn [[z0 zi] [-zi z0]]))
+  (def Z (single-qubit-gate-fn [[z1 z0] [z0 -z1]]))
+  (def H (single-qubit-gate-fn [[inv-root2 inv-root2] [inv-root2 -inv-root2]])))
