@@ -4,6 +4,7 @@
             [com.gfredericks.qubits.objects :refer :all]))
 
 (defn =ish [x y] (< (- x y) 0.0000001))
+(def one? #(= 1 %))
 
 (defn probably?
   [q p0 p1]
@@ -47,6 +48,8 @@
       (doto q H Y Z H)
       (probably? q 1 0))))
 
-#_(deftest single-qubit-observation-tests
-  (let [q (qubit)]
-    (is (zero? (observe q)))))
+(deftest single-qubit-observation-tests
+  (qubits [q]
+    (is (zero? (observe q)))
+    (X q)
+    (is (one? (observe q)))))

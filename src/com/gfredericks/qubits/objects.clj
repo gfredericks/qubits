@@ -62,6 +62,43 @@
              (into {}))]
     (assoc system :amplitudes new-amplitudes)))
 
+(defn ^:private weighted-choice
+  "Given a sequence of [x w], chooses an x with probability
+   governed by the weights w."
+  [pairs]
+  (let [total (apply + (map second pairs))
+        z (rand total)]
+    (loop [[[x w] & more] pairs, z z]
+      (if (or (empty? more) (< z w))
+        x
+        (recur more (- z w))))))
+
+(defn observe*
+  "Given a system map and one of the qubits in the system,
+   chooses a measurement outcome according to the current
+   probabilities, and returns [outcome new-system]."
+  [system qubit]
+  (let [{:keys [qubits amplitudes]} system
+        qi (.indexOf qubits qubit)
+        vals (weighted-choice
+              (for [[vals amp] amplitudes]
+                [vals (amplitude->probability amp)]))
+        v (vals qi)
+
+        filtered-amps
+        (filter (fn [[vals _]] (= v (vals qi))) amplitudes)
+
+        normalizer (->> filtered-amps
+                        (map second)
+                        (map amplitude->probability)
+                        (apply +))
+
+        new-amplitudes
+        (for [[vals amp] filtered-amps]
+          [vals (c/* amp (c/->real (/ normalizer)))])]
+    [v (assoc system :amplitudes (into {} new-amplitudes))]))
+
+
 ;; qubits as objects
 
 (deftype Qubit [name system]
@@ -116,7 +153,14 @@
      {0 0, 1 0}
      amplitudes)))
 
-(defn merge-systems
+(defn update-system-pointers!
+  "Given a system-map, updates all the .system refs of the :qubits
+   list to point to that map."
+  [system]
+  (doseq [q (:qubits system)]
+    (alter (.system q) (constantly system))))
+
+(defn merge-systems!
   "Updates the system properties of the qubits so that they are all
   together."
   [qs]
@@ -124,8 +168,7 @@
    (let [systems (distinct (map (fn [^Qubit q] (deref (.system q))) qs))]
      (when (> (count systems) 1)
        (let [system (reduce merge-systems systems)]
-         (doseq [^Qubit q qs]
-           (alter (.system q) (constantly system))))))))
+         (update-system-pointers! system))))))
 
 (defn single-qubit-gate-fn
   "Given a gate definition [[a b] [c d]], returns a function that
@@ -133,12 +176,12 @@
    the gate on it."
   [gate]
   (fn [^Qubit q & controls]
-    (when (seq controls)
-      (merge-systems (cons q controls)))
-    (let [new-system (apply-single-qubit-gate gate @(.system q) q controls)]
-      (dosync
-       (doseq [q' (cons q controls)]
-         (alter (.system q') (constantly new-system)))))))
+    (dosync
+     (when (seq controls)
+       (merge-systems! (cons q controls)))
+     (let [new-system (apply-single-qubit-gate gate @(.system q) q controls)]
+       (update-system-pointers! new-system)))
+    q))
 
 (let [z0 c/ZERO
       z1 c/ONE
@@ -151,3 +194,12 @@
   (def Y (single-qubit-gate-fn [[z0 zi] [-zi z0]]))
   (def Z (single-qubit-gate-fn [[z1 z0] [z0 -z1]]))
   (def H (single-qubit-gate-fn [[inv-root2 inv-root2] [inv-root2 -inv-root2]])))
+
+(defn observe
+  "Returns 0 or 1."
+  [q]
+  ;; TODO: extract q from its system if it is entangled
+  (dosync
+   (let [[outcome new-system] (observe* @(.system q) q)]
+     (update-system-pointers! new-system)
+     outcome)))
