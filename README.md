@@ -2,10 +2,6 @@
 
 Spooky action at a distance, in your repl!
 
-**WARNING**: What follows may or may not actually be a decent
-introduction to quantum computing. It may in fact be quite
-confusing. You've been warned.
-
 ## Hey okay let me have some of these qubits
 
 Alright let's see.
