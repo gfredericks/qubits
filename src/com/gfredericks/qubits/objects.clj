@@ -5,7 +5,9 @@
 (deftype Qubit [name system]
   Object
   (toString [this]
-    (format "#<Qubit[%s]>" name)))
+    (format "#<Qubit-%s: %s>"
+            name
+            (str (or (deterministic-value this) \?)))))
 
 (defmethod print-method Qubit
   [q ^java.io.Writer w]
