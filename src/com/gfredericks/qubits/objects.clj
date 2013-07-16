@@ -41,6 +41,34 @@
             [(into vs vs') (c/* amp amp')])]
       {:qubits qs, :amplitudes (into {} amplitudes)})))
 
+(defn vec-remove
+  [v i]
+  (cond (zero? i)
+        (subvec v 1)
+
+        (= i (dec (count v)))
+        (pop v)
+
+        :else
+        (into (subvec v 0 i) (rest (drop i v)))))
+
+(defn factor-qubit-from-system
+  "Given a system of at least two qubits, and one of the qubits from
+   that system, returns a new system without that qubit. The given
+   qubit must (currently) have only one possible value, so it can be
+   assumed to be unentangled."
+  [system q]
+  (let [{:keys [qubits amplitudes]} system
+        qi (.indexOf qubits q)]
+    (assert (> (count qubits) 1))
+    ;; check that it has the same value in all cases
+    (assert (apply = (map #(% qi) (keys amplitudes))))
+    (let [amplitudes' (into {}
+                            (for [[vals amp] amplitudes]
+                              [(vec-remove vals qi) amp]))]
+      {:qubits (vec-remove qubits qi)
+       :amplitudes amplitudes'})))
+
 (defn apply-single-qubit-gate
   "Gate is in the form [[a b] [c d]]. Returns a new system map."
   [gate system q controls]
@@ -201,8 +229,13 @@
 (defn observe
   "Returns 0 or 1."
   [q]
-  ;; TODO: extract q from its system if it is entangled
   (dosync
    (let [[outcome new-system] (observe* @(.system q) q)]
-     (update-system-pointers! new-system)
+     ;; if the qubit was previously entangled, detangle it
+     (if (> (count (:qubits new-system)) 1)
+       (let [new-system-1 (factor-qubit-from-system new-system q)
+             new-system-2 (single-qubit-system q outcome)]
+         (update-system-pointers! new-system-1)
+         (update-system-pointers! new-system-2))
+       (update-system-pointers! new-system))
      outcome)))
