@@ -23,11 +23,12 @@
                (:amplitudes m))))
 
 (defn single-qubit-system
-  "Given a qubit, returns a system map that consists of just that qubit
-   in the |0> state."
-  [q]
+  "Given a qubit and a 0/1, returns a system map that consists of just
+   that qubit in the |0> state or the |1> state."
+  [q v]
+  {:pre [(#{0 1} v)]}
   {:qubits [q]
-   :amplitudes {[0] c/ONE}})
+   :amplitudes {[v] c/ONE}})
 
 (defn merge-systems
   "Given two system maps, returns a new map with the systems merged."
@@ -113,7 +114,7 @@
 (defn init-system
   "Initializes a qubit to 0 inside its own system."
   [^Qubit q]
-  (let [system (single-qubit-system q)]
+  (let [system (single-qubit-system q 0)]
     (dosync
      (alter (.system q) (constantly system)))
     (set-validator! (.system q) system?)))
