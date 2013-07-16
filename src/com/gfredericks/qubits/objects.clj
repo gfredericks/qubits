@@ -58,7 +58,7 @@
   "Given a qubit, returns a 0 or a 1 if it has a deterministic value,
    or nil otherwise."
   [q]
-  (let []))
+  (data/deterministic-value @(.system q) q))
 
 (defn update-system-pointers!
   "Given a system-map, updates all the .system refs of the :qubits

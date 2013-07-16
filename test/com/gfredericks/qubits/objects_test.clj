@@ -121,3 +121,14 @@
       ;; check; this doesn't quite capture everything, as the Z above
       ;; can be skipped and this test wouldn't notice. Oh well.
       (is (probably? b2 0.8535533905932735 0.14644660940672616)))))
+
+
+(deftest deterministic-value-test
+  (qubits [q]
+    (is (= 0 (deterministic-value q)))
+    (X q)
+    (is (= 1 (deterministic-value q)))
+    (H q)
+    (is (nil? (deterministic-value q)))
+    (let [outcome (observe q)]
+      (is (= outcome (deterministic-value q))))))

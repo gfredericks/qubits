@@ -136,3 +136,14 @@
      :S [[z1 z0] [z0 zi]]
      :T [[z1 z0] [z0 (c/->PolarComplex 1 (/ c/TAU 8))]]
      :H [[inv-root2 inv-root2] [inv-root2 -inv-root2]]}))
+
+(defn deterministic-value
+  "If q has a deterministic value in the system, return it (0 or 1);
+  else return nil."
+  [system q]
+  (let [{:keys [qubits amplitudes]} system
+        qi (.indexOf qubits q)
+        vals (->> amplitudes
+                  keys
+                  (map #(% qi)))]
+    (if (apply = vals) (first vals))))
