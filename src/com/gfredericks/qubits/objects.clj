@@ -1,134 +1,6 @@
 (ns com.gfredericks.qubits.objects
   "Qubits as Objects."
-  (:require [com.gfredericks.qubits.complex :as c]))
-
-;; pure quantum math stuff; probably its own ns eventually
-;;
-;; any references to qubits in this part of the code use them
-;; only for equality checks, I think
-
-(defn amplitude->probability
-  [c]
-  (let [m (c/mag c)] (* m m)))
-
-(defn system?
-  "Checks that m looks roughly like a decent system map."
-  [m]
-  (and (vector? (:qubits m))
-       (map? (:amplitudes m))
-       (every? (fn [[vals amp]]
-                 (and (vector? vals)
-                      (every? #{0 1} vals)
-                      (satisfies? c/IComplex amp)))
-               (:amplitudes m))))
-
-(defn single-qubit-system
-  "Given a qubit and a 0/1, returns a system map that consists of just
-   that qubit in the |0> state or the |1> state."
-  [q v]
-  {:pre [(#{0 1} v)]}
-  {:qubits [q]
-   :amplitudes {[v] c/ONE}})
-
-(defn merge-systems
-  "Given two system maps, returns a new map with the systems merged."
-  [system1 system2]
-  (let [qs (into (:qubits system1) (:qubits system2))]
-    (assert (apply distinct? qs) "Why do these systems already overlap?")
-    (let [amplitudes
-          (for [[vs amp] (:amplitudes system1)
-                [vs' amp'] (:amplitudes system2)]
-            [(into vs vs') (c/* amp amp')])]
-      {:qubits qs, :amplitudes (into {} amplitudes)})))
-
-(defn vec-remove
-  [v i]
-  (cond (zero? i)
-        (subvec v 1)
-
-        (= i (dec (count v)))
-        (pop v)
-
-        :else
-        (into (subvec v 0 i) (rest (drop i v)))))
-
-(defn factor-qubit-from-system
-  "Given a system of at least two qubits, and one of the qubits from
-   that system, returns a new system without that qubit. The given
-   qubit must (currently) have only one possible value, so it can be
-   assumed to be unentangled."
-  [system q]
-  (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits q)]
-    (assert (> (count qubits) 1))
-    ;; check that it has the same value in all cases
-    (assert (apply = (map #(% qi) (keys amplitudes))))
-    (let [amplitudes' (into {}
-                            (for [[vals amp] amplitudes]
-                              [(vec-remove vals qi) amp]))]
-      {:qubits (vec-remove qubits qi)
-       :amplitudes amplitudes'})))
-
-(defn apply-single-qubit-gate
-  "Gate is in the form [[a b] [c d]]. Returns a new system map."
-  [gate system q controls]
-  {:post [(system? %)]}
-  (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits q)
-        controls-i (map #(.indexOf qubits %) controls)
-
-        new-amplitudes
-        (->> (for [[vals amp] amplitudes
-                   :let [control-vals (map vals controls-i)]]
-               (if (every? #{1} control-vals)
-                 (let [q-val (vals qi)
-                       [amp0 amp1] (gate q-val)]
-                   {(assoc vals qi 0) (c/* amp0 amp)
-                    (assoc vals qi 1) (c/* amp1 amp)})
-                 {vals amp}))
-             (apply merge-with c/+)
-             (remove (comp c/zeroish? val))
-             (into {}))]
-    (assoc system :amplitudes new-amplitudes)))
-
-(defn ^:private weighted-choice
-  "Given a sequence of [x w], chooses an x with probability
-   governed by the weights w."
-  [pairs]
-  (let [total (apply + (map second pairs))
-        z (rand total)]
-    (loop [[[x w] & more] pairs, z z]
-      (if (or (empty? more) (< z w))
-        x
-        (recur more (- z w))))))
-
-(defn observe*
-  "Given a system map and one of the qubits in the system,
-   chooses a measurement outcome according to the current
-   probabilities, and returns [outcome new-system]."
-  [system qubit]
-  (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits qubit)
-        vals (weighted-choice
-              (for [[vals amp] amplitudes]
-                [vals (amplitude->probability amp)]))
-        v (vals qi)
-
-        filtered-amps
-        (filter (fn [[vals _]] (= v (vals qi))) amplitudes)
-
-        normalizer (->> filtered-amps
-                        (map second)
-                        (map amplitude->probability)
-                        (apply +))
-
-        new-amplitudes
-        (for [[vals amp] filtered-amps]
-          [vals (c/* amp (-> normalizer Math/sqrt / c/->real))])]
-    [v (assoc system :amplitudes (into {} new-amplitudes))]))
-
-
-;; qubits as objects
+  (:require [com.gfredericks.qubits.data :as data]))
 
 (deftype Qubit [name system]
   Object
@@ -142,10 +14,10 @@
 (defn init-system
   "Initializes a qubit to 0 inside its own system."
   [^Qubit q]
-  (let [system (single-qubit-system q 0)]
+  (let [system (data/single-qubit-system q 0)]
     (dosync
      (alter (.system q) (constantly system)))
-    (set-validator! (.system q) system?)))
+    (set-validator! (.system q) data/system?)))
 
 (defn qubit
   ([] (qubit (gensym "qubit-")))
@@ -178,9 +50,15 @@
     (reduce
      (fn [ret [vals amp]]
        (update-in ret [(nth vals i)] +
-                  (amplitude->probability amp)))
+                  (data/amplitude->probability amp)))
      {0 0, 1 0}
      amplitudes)))
+
+(defn deterministic-value
+  "Given a qubit, returns a 0 or a 1 if it has a deterministic value,
+   or nil otherwise."
+  [q]
+  (let []))
 
 (defn update-system-pointers!
   "Given a system-map, updates all the .system refs of the :qubits
@@ -196,7 +74,7 @@
   (dosync
    (let [systems (distinct (map (fn [^Qubit q] (deref (.system q))) qs))]
      (when (> (count systems) 1)
-       (let [system (reduce merge-systems systems)]
+       (let [system (reduce data/merge-systems systems)]
          (update-system-pointers! system))))))
 
 (defn single-qubit-gate-fn
@@ -208,33 +86,27 @@
     (dosync
      (when (seq controls)
        (merge-systems! (cons q controls)))
-     (let [new-system (apply-single-qubit-gate gate @(.system q) q controls)]
+     (let [new-system (data/apply-single-qubit-gate gate @(.system q) q controls)]
        (update-system-pointers! new-system)))
     q))
 
-(let [z0 c/ZERO
-      z1 c/ONE
-      zi c/I
-      -zi (c/- zi)
-      -z1 (c/- z1)
-      inv-root2 (c/->real (/ (Math/sqrt 2)))
-      -inv-root2 (c/- inv-root2)]
-  (def X (single-qubit-gate-fn [[z0 z1] [z1 z0]]))
-  (def Y (single-qubit-gate-fn [[z0 zi] [-zi z0]]))
-  (def Z (single-qubit-gate-fn [[z1 z0] [z0 -z1]]))
-  (def S (single-qubit-gate-fn [[z1 z0] [z0 zi]]))
-  (def T (single-qubit-gate-fn [[z1 z0] [z0 (c/->PolarComplex 1 (/ c/TAU 8))]]))
-  (def H (single-qubit-gate-fn [[inv-root2 inv-root2] [inv-root2 -inv-root2]])))
+(let [g data/single-qubit-gates]
+  (def X (single-qubit-gate-fn (g :X)))
+  (def Y (single-qubit-gate-fn (g :Y)))
+  (def Z (single-qubit-gate-fn (g :Z)))
+  (def S (single-qubit-gate-fn (g :S)))
+  (def T (single-qubit-gate-fn (g :T)))
+  (def H (single-qubit-gate-fn (g :H))))
 
 (defn observe
   "Returns 0 or 1."
   [q]
   (dosync
-   (let [[outcome new-system] (observe* @(.system q) q)]
+   (let [[outcome new-system] (data/observe @(.system q) q)]
      ;; if the qubit was previously entangled, detangle it
      (if (> (count (:qubits new-system)) 1)
-       (let [new-system-1 (factor-qubit-from-system new-system q)
-             new-system-2 (single-qubit-system q outcome)]
+       (let [new-system-1 (data/factor-qubit-from-system new-system q)
+             new-system-2 (data/single-qubit-system q outcome)]
          (update-system-pointers! new-system-1)
          (update-system-pointers! new-system-2))
        (update-system-pointers! new-system))
