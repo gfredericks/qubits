@@ -2,6 +2,8 @@
   "Qubits as Objects."
   (:require [com.gfredericks.qubits.data :as data]))
 
+(declare deterministic-value)
+
 (deftype Qubit [name system]
   Object
   (toString [this]
