@@ -115,3 +115,28 @@
          (update-system-pointers! new-system-2))
        (update-system-pointers! new-system))
      outcome)))
+
+(defn measure-along-axis
+  "Measures the qubit along the :X, :Y, or :Z axis of the bloch sphere."
+  [q axis]
+  (case axis
+    :Z (observe q)
+    :X (do (H q) (let [res (observe q)] (H q) res))
+    :Y (do (doto q S H) (let [res (observe q)] (doto q H S) res))))
+
+(defn characterize
+  "Given a function that repeatedly returns new qubits in the
+  same (presumably unentangled) state, measures them n times along
+  each axis and returns a map containing the average value (i.e., the
+  proportion of the time that the measurement was 1). For qubits in a
+  pure (unentangled) state, the result should statistically completely
+  characterize the state."
+  [qubit-source n]
+  (into {}
+        (for [axis [:X :Y :Z]]
+          [axis (-> (->> (repeatedly n qubit-source)
+                         (map #(measure-along-axis % axis))
+                         (filter #{1})
+                         (count))
+                    (/ n)
+                    (double))])))
