@@ -28,7 +28,7 @@
 (def classical-alice (constantly 0))
 (def classical-bob   (constantly 0))
 
-(defn classic-run
+(defn play-classical
   []
   (let [x (rand-int 2)
         y (rand-int 2)]
@@ -40,7 +40,7 @@
   (format "%.3f%%" (double (* 100 (/ t (+ f t))))))
 
 (comment
-  (report (frequencies (repeatedly 100000 classic-run)))
+  (report (frequencies (repeatedly 100000 play-classical)))
   ;; => "75.076%"
   )
 
@@ -92,7 +92,7 @@
           (X y x)
           [x y]))
 
-(defn quantum-run
+(defn play-quantum
   []
   (let [[q1 q2] (bell-qubits)
         x (rand-int 2)
@@ -101,7 +101,7 @@
        (bit-xor (quantum-alice q1 x) (quantum-bob q2 y)))))
 
 (comment
-  (report (frequencies (repeatedly 1000 quantum-run)))
+  (report (frequencies (repeatedly 1000 play-quantum)))
   ;; => "85.800%"
   )
 
