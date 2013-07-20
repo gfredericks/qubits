@@ -49,26 +49,19 @@
 (defn probabilities
   "Returns a map like {0 p1, 1 p2}."
   [^Qubit q]
-  (let [{:keys [qubits amplitudes] :as system} @(.system q)
-        i (.indexOf qubits q)]
-    (reduce
-     (fn [ret [vals amp]]
-       (update-in ret [(nth vals i)] +
-                  (data/amplitude->probability amp)))
-     {0 0, 1 0}
-     amplitudes)))
+  (data/probabilities @(.system q) q))
 
 (defn deterministic-value
   "Given a qubit, returns a 0 or a 1 if it has a deterministic value,
    or nil otherwise."
-  [q]
+  [^Qubit q]
   (data/deterministic-value @(.system q) q))
 
 (defn update-system-pointers!
   "Given a system-map, updates all the .system refs of the :qubits
    list to point to that map."
   [system]
-  (doseq [q (:qubits system)]
+  (doseq [^Qubit q (:qubits system)]
     (alter (.system q) (constantly system))))
 
 (defn merge-systems!
@@ -104,7 +97,7 @@
 
 (defn observe
   "Returns 0 or 1."
-  [q]
+  [^Qubit q]
   (dosync
    (let [[outcome new-system] (data/observe @(.system q) q)]
      ;; if the qubit was previously entangled, detangle it

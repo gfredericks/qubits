@@ -2,6 +2,14 @@
   "The logical underpinnings."
   (:require [com.gfredericks.qubits.complex :as c]))
 
+;; it feels messy to need indexOf. Should we be using maps instead?
+;;
+;; For that matter should we be using the term "PureState" instead of
+;; "system"?
+(defn index-of
+  [^clojure.lang.APersistentVector v x]
+  (.indexOf v x))
+
 (defn amplitude->probability
   [c]
   (let [m (c/mag c)] (* m m)))
@@ -54,7 +62,7 @@
    assumed to be unentangled."
   [system q]
   (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits q)]
+        qi (index-of qubits q)]
     (assert (> (count qubits) 1))
     ;; check that it has the same value in all cases
     (assert (apply = (map #(% qi) (keys amplitudes))))
@@ -64,13 +72,24 @@
       {:qubits (vec-remove qubits qi)
        :amplitudes amplitudes'})))
 
+(defn probabilities
+  [system q]
+  (let [{:keys [qubits amplitudes]} system
+        i (index-of qubits q)]
+    (reduce
+     (fn [ret [vals amp]]
+       (update-in ret [(nth vals i)] +
+                  (amplitude->probability amp)))
+     {0 0, 1 0}
+     amplitudes)))
+
 (defn apply-single-qubit-gate
   "Gate is in the form [[a b] [c d]]. Returns a new system map."
   [gate system q controls]
   {:post [(system? %)]}
   (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits q)
-        controls-i (map #(.indexOf qubits %) controls)
+        qi (index-of qubits q)
+        controls-i (map #(index-of qubits %) controls)
 
         new-amplitudes
         (->> (for [[vals amp] amplitudes
@@ -103,7 +122,7 @@
    probabilities, and returns [outcome new-system]."
   [system qubit]
   (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits qubit)
+        qi (index-of qubits qubit)
         vals (weighted-choice
               (for [[vals amp] amplitudes]
                 [vals (amplitude->probability amp)]))
@@ -142,7 +161,7 @@
   else return nil."
   [system q]
   (let [{:keys [qubits amplitudes]} system
-        qi (.indexOf qubits q)
+        qi (index-of qubits q)
         vals (->> amplitudes
                   keys
                   (map #(% qi)))]
