@@ -3,7 +3,7 @@
 Spooky action at a distance, in your repl!
 
 Below is a basic introduction. There are also some more involved
-examples in `/src/com/gfredericks/qubits/examples`.
+examples in [`/src/com/gfredericks/qubits/examples`](https://github.com/fredericksgary/qubits/tree/master/src/com/gfredericks/qubits/examples).
 
 ## Hey okay let me have some of these qubits
 
