@@ -156,6 +156,10 @@
      :T [[z1 z0] [z0 (c/->PolarComplex 1 (/ c/TAU 8))]]
      :H [[inv-root2 inv-root2] [inv-root2 -inv-root2]]}))
 
+(defn phase-gate
+  [theta]
+  (assoc-in (single-qubit-gates :Z) [1 1] (c/->PolarComplex 1 theta)))
+
 (defn deterministic-value
   "If q has a deterministic value in the system, return it (0 or 1);
   else return nil."

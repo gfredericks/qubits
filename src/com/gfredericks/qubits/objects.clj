@@ -95,6 +95,10 @@
   (def T (single-qubit-gate-fn (g :T)))
   (def H (single-qubit-gate-fn (g :H))))
 
+(defn phase
+  [q theta & controls]
+  (apply (single-qubit-gate-fn (data/phase-gate theta)) q controls))
+
 (defn observe
   "Returns 0 or 1."
   [^Qubit q]
