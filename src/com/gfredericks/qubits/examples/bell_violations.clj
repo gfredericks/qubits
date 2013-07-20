@@ -48,7 +48,7 @@
 ;; The interesting part is that they can do better than 75% if they each
 ;; have half of a pair of entangled qubits. They each manipulate their
 ;; qubit in a particular way depending on the value of x/y, and then
-;; observe the value of the qubit, outputting the response.
+;; observe the value of the qubit, outputting the result directly.
 ;;
 ;; Through some trigonometric magic that I don't understand, this can
 ;; give them a win rate of ~85%.
