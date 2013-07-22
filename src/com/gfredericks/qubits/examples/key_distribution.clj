@@ -108,11 +108,34 @@
 ;; maximally undefined with regard to the other measurement.  This is,
 ;; I think, the essense of the Heisenburg Uncertainty Principle.
 
-;; Now we can describe the protocol. I'm going to model Alice and Bob
-;; as maps describing the messages that each actor can receive, where
-;; the values are functions taking two arguments (the current state
-;; of the agent and the message received) and returning a pair (the new
-;; state of the agent and the message to send back).
+
+;; Now we can describe the protocol. The basic idea is that Alice will
+;; generate some random bits, and then encode those bits in a series
+;; of qubits, where in each case she randomly decides to encode as
+;; either the value of the qubit or the sign. She keeps track of which
+;; way she encoded it for each qubit.
+;;
+;; Then she sends the qubits to Bob, who picks randomly for each one
+;; whether to measure its sign or value, and decodes based on that
+;; random choice. He then sends back to Alice the list of how he
+;; chose to measure each qubit.
+;;
+;; Alice receives that list and compares it to her own to determine
+;; which qubits Bob observed correctly. The incorrect ones can be
+;; tossed since Bob would have just observed a random value. Of the
+;; correct ones, a subset are chosen at random to serve as
+;; verification bits. For these Alice sends the actual bit values to
+;; Bob so he can check that he observed the correct value for them.
+;; If he didn't eavesdropping is assumed and the protocol is aborted.
+;; Otherwise Alice and Bob assume that the correctly-observed bits
+;; that weren't used for verification can function as a shared secret.
+
+
+;; To the code. I'm going to model Alice and Bob as maps describing
+;; the messages that each actor can receive, where the values are
+;; functions taking two arguments (the current state of the agent and
+;; the message received) and returning a pair (the new state of the
+;; agent and the message to send back).
 ;;
 ;; The main flow of control (that passes the messages back and forth)
 ;; will also function as the evesdropper. Alice and Bob pass both
