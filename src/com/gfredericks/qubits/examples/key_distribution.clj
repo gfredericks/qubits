@@ -110,17 +110,124 @@
 
 ;; Now we can describe the protocol. I'm going to model Alice and Bob
 ;; as maps describing the messages that each actor can receive, where
-;; the values are functions taking one argument (the body of the
-;; message) and returning a triple:
-;;   [next-expected-message-type message-type-to-send message-body-to-send]
+;; the values are functions taking two arguments (the current state
+;; of the agent and the message received) and returning a pair (the new
+;; state of the agent and the message to send back).
 ;;
 ;; The main flow of control (that passes the messages back and forth)
 ;; will also function as the evesdropper. Alice and Bob pass both
 ;; classical and quantum messages, but since we're dealing with
 ;; Objects in both cases we don't really have to distinguish.
 
-(def alice
-  {:start
-   (fn [_]
 
-     )})
+(def alice-responses
+  {:start
+   (fn [{:keys [bitcount], :as state} _]
+     (let [bits (repeatedly bitcount #(rand-int 2))
+           bases (repeatedly bitcount #(rand-nth [:value :sign]))
+           qubits (map (fn [bit basis]
+                         (case basis
+                           :value
+                           (case bit 0 (zero), 1 (one))
+                           :sign
+                           (case bit 0 (plus), 1 (minus))))
+                       bits
+                       bases)]
+       [(assoc state
+          :bits bits
+          :bases bases)
+        [:qubits qubits]]))
+   :bases
+   (fn [{:keys [bits bases], :as state} bases-from-bob]
+     (let [good-indices
+           (for [[i basis basis-from-bob] (map list (range) bases bases-from-bob)
+                 :when (= basis basis-from-bob)]
+             i)
+
+           [verification-indices key-indices]
+           (->> good-indices
+                (shuffle)
+                (split-at (quot (count good-indices) 2))
+                (map sort))
+
+           verification (into {} (for [i verification-indices]
+                                   [i (nth bits i)]))]
+       [(assoc state
+          :key-indices key-indices)
+        [:verify {:verification verification
+                  :key-indices key-indices}]]))
+   :success
+   (fn [{:keys [key-indices bits]} _]
+     (let [key-bits (map #(nth bits %) key-indices)]
+       (println "Alice succeeds with: " key-bits)))
+   :abort (constantly nil)})
+
+(def bob-responses
+  {:qubits
+   (fn [state qubits]
+     (let [bitcount (count qubits)
+           bases (repeatedly bitcount #(rand-nth [:value :sign]))
+           bits (map (fn [qubit basis]
+                       (case basis
+                         :value
+                         (case (observe qubit) 0 0, 1 1)
+                         :sign
+                         (case (observe-sign qubit) :+ 0, :- 1)))
+                     qubits
+                     bases)]
+       [(assoc state
+          :bits bits
+          :bases bases)
+        [:bases bases]]))
+   :verify
+   (fn [{:keys [bits], :as state} {:keys [verification key-indices]}]
+     (let [error-count (apply + (for [[i v] verification
+                                      :when (not= v (nth bits i))]
+                                  1))]
+       (if (pos? error-count)
+         [state [:abort error-count]]
+         (let [key-bits (map #(nth bits %) key-indices)]
+           (println "Bob succeeds with: " key-bits)
+           [state [:success nil]]))))})
+
+(defn make-person
+  "Returns a stateful function that accepts messages and executes the responses."
+  [responses init-state]
+  (let [state (atom init-state)]
+    (fn [[msg body]]
+      (let [[new-state msg'] ((responses msg) @state body)]
+        (reset! state new-state)
+        msg'))))
+
+(defn run-without-evesdropping
+  []
+  (let [alice (make-person alice-responses {:bitcount 100})
+        bob (make-person bob-responses {})]
+    (loop [next-msg [:start nil]
+           people (cycle [alice bob])]
+      (println "Sending" (first next-msg))
+      (if-let [resp ((first people) next-msg)]
+        (recur resp (rest people))))))
+
+(comment
+  (run-without-evesdropping)
+  )
+
+(defn run-with-evesdropping
+  []
+  (let [alice (make-person alice-responses {:bitcount 100})
+        bob (make-person bob-responses {})]
+    (loop [next-msg [:start nil]
+           people (cycle [alice bob])]
+      (println "Sending" (first next-msg))
+      (when (= :qubits (first next-msg))
+        (let [qubits (second next-msg)
+              observed (doall (for [q (take 20 qubits)]
+                                (observe q)))]
+          (println "Evesdropped and observed" observed)))
+      (if-let [resp ((first people) next-msg)]
+        (recur resp (rest people))))))
+
+(comment
+  (run-with-evesdropping)
+  )
