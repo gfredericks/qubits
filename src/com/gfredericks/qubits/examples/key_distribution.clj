@@ -121,10 +121,16 @@
 
 
 (def alice-responses
+  ;; Step 1 of the protocol
   {:start
    (fn [{:keys [bitcount], :as state} _]
+     ;; We start by generating some random bits from which the shared
+     ;; secret will be drawn
      (let [bits (repeatedly bitcount #(rand-int 2))
+           ;; We also need to pick how to encode each bit, as either
+           ;; the value or the sign of a qubit
            bases (repeatedly bitcount #(rand-nth [:value :sign]))
+           ;; Here we actually construct the qubits to send to Bob
            qubits (map (fn [bit basis]
                          (case basis
                            :value
@@ -137,25 +143,40 @@
           :bits bits
           :bases bases)
         [:qubits qubits]]))
+
+   ;; Step 3 of the protocol -- Bob has just sent the list of bases he
+   ;; used to measure the qubits we sent. I.e., it is a list like
+   ;; [:value :value :sign :value ...]
+   ;;
+   ;; We're going to compare that to the list of bases we used to
+   ;; figure out which bits Bob should have measured correctly; then
+   ;; we'll pick half of those to use as verification bits, and send
+   ;; the values for those bits to Bob for evesdropping-checking.
    :bases
    (fn [{:keys [bits bases], :as state} bases-from-bob]
      (let [good-indices
+           ;; First figure out which qubits were measured correctly
            (for [[i basis basis-from-bob] (map list (range) bases bases-from-bob)
                  :when (= basis basis-from-bob)]
              i)
 
+           ;; Split the correctly measured qubits into verification
+           ;; and key groups
            [verification-indices key-indices]
            (->> good-indices
                 (shuffle)
                 (split-at (quot (count good-indices) 2))
                 (map sort))
 
+           ;; Assemble the verification message
            verification (into {} (for [i verification-indices]
                                    [i (nth bits i)]))]
        [(assoc state
           :key-indices key-indices)
         [:verify {:verification verification
                   :key-indices key-indices}]]))
+
+   ;; Step 5 just prints a success message.
    :success
    (fn [{:keys [key-indices bits]} _]
      (let [key-bits (map #(nth bits %) key-indices)]
@@ -163,10 +184,13 @@
    :abort (constantly nil)})
 
 (def bob-responses
+  ;; Step 2 of the protocol -- Alice has just sent the qubits.
   {:qubits
    (fn [state qubits]
      (let [bitcount (count qubits)
+           ;; Randomly pick how to measure the qubits
            bases (repeatedly bitcount #(rand-nth [:value :sign]))
+           ;; Do the measurements
            bits (map (fn [qubit basis]
                        (case basis
                          :value
@@ -175,10 +199,16 @@
                          (case (observe-sign qubit) :+ 0, :- 1)))
                      qubits
                      bases)]
+       ;; Send back to Alice the information about how we measured the
+       ;; qubits
        [(assoc state
           :bits bits
           :bases bases)
         [:bases bases]]))
+
+   ;; Step 4: Alice sends back the verification info, and the list of
+   ;; which qubits to use for the key. We check the verification info
+   ;; against the values we observed in step 2.
    :verify
    (fn [{:keys [bits], :as state} {:keys [verification key-indices]}]
      (let [error-count (apply + (for [[i v] verification
@@ -190,7 +220,7 @@
            (println "Bob succeeds with: " key-bits)
            [state [:success nil]]))))})
 
-(defn make-person
+(defn make-actor
   "Returns a stateful function that accepts messages and executes the responses."
   [responses init-state]
   (let [state (atom init-state)]
@@ -199,10 +229,11 @@
         (reset! state new-state)
         msg'))))
 
+;; The basic runner just passes messages back and forth
 (defn run-without-evesdropping
   []
-  (let [alice (make-person alice-responses {:bitcount 100})
-        bob (make-person bob-responses {})]
+  (let [alice (make-actor alice-responses {:bitcount 100})
+        bob (make-actor bob-responses {})]
     (loop [next-msg [:start nil]
            people (cycle [alice bob])]
       (println "Sending" (first next-msg))
@@ -211,23 +242,48 @@
 
 (comment
   (run-without-evesdropping)
+  ;; prints:
+  ;;   Sending :start
+  ;;   Sending :qubits
+  ;;   Sending :bases
+  ;;   Sending :verify
+  ;;   Bob succeeds with:  (0 1 1 1 0 0 0 1 0 1 1 1 0 0 0 0 1 1 0 0 1 1 1)
+  ;;   Sending :success
+  ;;   Alice succeeds with:  (0 1 1 1 0 0 0 1 0 1 1 1 0 0 0 0 1 1 0 0 1 1 1)
   )
 
+;; This is just like run-without-evesdropping except we observe the
+;; qubits in transit
 (defn run-with-evesdropping
   []
-  (let [alice (make-person alice-responses {:bitcount 100})
-        bob (make-person bob-responses {})]
+  (let [alice (make-actor alice-responses {:bitcount 100})
+        bob (make-actor bob-responses {})]
     (loop [next-msg [:start nil]
            people (cycle [alice bob])]
       (println "Sending" (first next-msg))
+
+      ;; Here we do the actualy evesdropping. We can observe all the
+      ;; qubits, or just some. We could also be more creative about
+      ;; whether to measure the sign or the value
+      ;;
+      ;; The fewer qubits you observe, the less of a chance Alice and
+      ;; Bob will notice, but the less information you get.
       (when (= :qubits (first next-msg))
         (let [qubits (second next-msg)
               observed (doall (for [q (take 20 qubits)]
                                 (observe q)))]
           (println "Evesdropped and observed" observed)))
+
       (if-let [resp ((first people) next-msg)]
         (recur resp (rest people))))))
 
 (comment
   (run-with-evesdropping)
+  ;; prints:
+  ;;   Sending :start
+  ;;   Sending :qubits
+  ;;   Evesdropped and observed (0 1 1 0 1 0 1 0 1 0 1 0 1 1 1 1 1 1 0 0)
+  ;;   Sending :bases
+  ;;   Sending :verify
+  ;;   Sending :abort
   )
