@@ -69,7 +69,7 @@
   together."
   [qs]
   (dosync
-   (let [systems (distinct (map (fn [^Qubit q] (deref (.system q))) qs))]
+   (let [systems (distinct (map (fn [^Qubit q] @(.system q)) qs))]
      (when (> (count systems) 1)
        (let [system (reduce data/merge-systems systems)]
          (update-system-pointers! system))))))
