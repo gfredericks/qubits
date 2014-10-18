@@ -1,5 +1,6 @@
 (ns com.gfredericks.qubits.examples.factoring
-  (:require [com.gfredericks.qubits.objects :as q]))
+  (:require [com.gfredericks.qubits.objects :as q]
+            [com.gfredericks.qubits.complex :as z]))
 
 (defn lazy-exponentiation
   "Returns a lazy sequence of increasing numbers where the last is
@@ -46,3 +47,21 @@
                       (into twos (factor n))))
         :else (or (factor-as-odd-power n)
                   (factor-quantumly n))))
+
+;;
+;; SCRATCH
+;;
+
+(defn DFT
+  [zs]
+  (let [m (count zs)]
+    (mapv (fn [j]
+            (z/*
+             (z/->real (/ (Math/sqrt m)))
+             (apply z/+
+                    (for [k (range m)]
+                      (z/* (zs k)
+                           (z/->PolarComplex
+                            1
+                            (/ (* 2 Math/PI j k) m)))))))
+          (range m))))
