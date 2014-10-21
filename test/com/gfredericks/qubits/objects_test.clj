@@ -1,6 +1,5 @@
 (ns com.gfredericks.qubits.objects-test
   (:require [clojure.test :refer :all]
-            [com.gfredericks.qubits.complex :as c]
             [com.gfredericks.qubits.objects :refer :all]))
 
 (defn =ish [x y] (< (- x y) 0.0000001))

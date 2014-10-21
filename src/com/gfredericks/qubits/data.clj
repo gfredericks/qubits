@@ -1,6 +1,9 @@
 (ns com.gfredericks.qubits.data
   "The logical underpinnings."
-  (:require [com.gfredericks.qubits.complex :as c]))
+  (:require [com.gfredericks.z :as z]
+            [com.gfredericks.z.impl :refer [IComplex]]))
+
+(def ^:const TAU (* 2 Math/PI))
 
 ;; it feels messy to need indexOf. Should we be using maps instead?
 ;;
@@ -12,7 +15,7 @@
 
 (defn amplitude->probability
   [c]
-  (let [m (c/mag c)] (* m m)))
+  (let [m (z/magnitude c)] (* m m)))
 
 (defn system?
   "Checks that m looks roughly like a decent system map."
@@ -22,7 +25,7 @@
        (every? (fn [[vals amp]]
                  (and (vector? vals)
                       (every? #{0 1} vals)
-                      (satisfies? c/IComplex amp)))
+                      (satisfies? IComplex amp)))
                (:amplitudes m))))
 
 (defn single-qubit-system
@@ -31,7 +34,7 @@
   [q v]
   {:pre [(#{0 1} v)]}
   {:qubits [q]
-   :amplitudes {[v] c/ONE}})
+   :amplitudes {[v] z/ONE}})
 
 (defn merge-systems
   "Given two system maps, returns a new map with the systems merged."
@@ -41,7 +44,7 @@
     (let [amplitudes
           (for [[vs amp] (:amplitudes system1)
                 [vs' amp'] (:amplitudes system2)]
-            [(into vs vs') (c/* amp amp')])]
+            [(into vs vs') (z/* amp amp')])]
       {:qubits qs, :amplitudes (into {} amplitudes)})))
 
 (defn vec-remove
@@ -83,6 +86,8 @@
      {0 0, 1 0}
      amplitudes)))
 
+(defn ^:private zeroish? [z] (< (z/magnitude z) 1e-10))
+
 (defn apply-single-qubit-gate
   "Gate is in the form [[a b] [c d]]. Returns a new system map."
   [gate system q controls]
@@ -97,11 +102,11 @@
                (if (every? #{1} control-vals)
                  (let [q-val (vals qi)
                        [amp0 amp1] (gate q-val)]
-                   {(assoc vals qi 0) (c/* amp0 amp)
-                    (assoc vals qi 1) (c/* amp1 amp)})
+                   {(assoc vals qi 0) (z/* amp0 amp)
+                    (assoc vals qi 1) (z/* amp1 amp)})
                  {vals amp}))
-             (apply merge-with c/+)
-             (remove (comp c/zeroish? val))
+             (apply merge-with z/+)
+             (remove (comp zeroish? val))
              (into {}))]
     (assoc system :amplitudes new-amplitudes)))
 
@@ -138,27 +143,27 @@
 
         new-amplitudes
         (for [[vals amp] filtered-amps]
-          [vals (c/* amp (-> normalizer Math/sqrt / c/->real))])]
+          [vals (z/* amp (-> normalizer Math/sqrt / z/real->z))])]
     [v (assoc system :amplitudes (into {} new-amplitudes))]))
 
 (def single-qubit-gates
-  (let [z0 c/ZERO
-        z1 c/ONE
-        zi c/I
-        -zi (c/- zi)
-        -z1 (c/- z1)
-        inv-root2 (c/->real (/ (Math/sqrt 2)))
-        -inv-root2 (c/- inv-root2)]
+  (let [z0 z/ZERO
+        z1 z/ONE
+        zi z/I
+        -zi (z/- zi)
+        -z1 (z/- z1)
+        inv-root2 (z/real->z (/ (Math/sqrt 2)))
+        -inv-root2 (z/- inv-root2)]
     {:X [[z0 z1] [z1 z0]]
      :Y [[z0 zi] [-zi z0]]
      :Z [[z1 z0] [z0 -z1]]
      :S [[z1 z0] [z0 zi]]
-     :T [[z1 z0] [z0 (c/->PolarComplex 1 (/ c/TAU 8))]]
+     :T [[z1 z0] [z0 (z/polar->z 1 (/ TAU 8))]]
      :H [[inv-root2 inv-root2] [inv-root2 -inv-root2]]}))
 
 (defn phase-gate
   [theta]
-  (assoc-in (single-qubit-gates :Z) [1 1] (c/->PolarComplex 1 theta)))
+  (assoc-in (single-qubit-gates :Z) [1 1] (z/polar->z 1 theta)))
 
 (defn deterministic-value
   "If q has a deterministic value in the system, return it (0 or 1);
