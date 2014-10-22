@@ -1,6 +1,8 @@
 (ns com.gfredericks.qubits.examples.factoring
   (:require [com.gfredericks.qubits.objects :as q]
-            [com.gfredericks.qubits.complex :as z]))
+            [com.gfredericks.z :as z]))
+
+(declare factor)
 
 (defn lazy-exponentiation
   "Returns a lazy sequence of increasing numbers where the last is
@@ -35,6 +37,42 @@
                             (recur mid-p upper-p)))))))))
           plausible-k)))
 
+(defn ^:private gcd
+  [a b]
+  (if (zero? b) a (recur b (rem a b))))
+
+(defn ^:private mod-pow
+  "Returns a^b mod n"
+  [a b n]
+  (bigint (.modPow (biginteger a) (biginteger b) (biginteger n))))
+
+(defn quantum-find-order
+  [])
+
+(defn classical-find-order
+  [n a]
+  (->> (iterate #(mod (* % a) n) a)
+       (take-while #(not= % 1))
+       (count)
+       (inc)))
+
+(defn factor-quantumly
+  [n]
+  (let [a (+ 2 (rand-int (- n 2)))
+        x (gcd a n)]
+    (if (> x 1)
+      ;; what luck!
+      (concat (factor x) (factor (/ n x)))
+      (let [r (quantum-find-order n a)]
+        (if (odd? r)
+          (recur n)
+          (let [sqrt (mod-pow a (/ r 2) n)]
+            (if (#{1 (dec n)} sqrt)
+              (recur n)
+              (let [x (gcd (dec sqrt) n)]
+                (assert (< 1 x n))
+                (concat (factor x) (factor (/ n x)))))))))))
+
 (defn factor
   [n]
   {:pre [(integer? n) (pos? n)]}
@@ -57,11 +95,11 @@
   (let [m (count zs)]
     (mapv (fn [j]
             (z/*
-             (z/->real (/ (Math/sqrt m)))
+             (z/real->z (/ (Math/sqrt m)))
              (apply z/+
                     (for [k (range m)]
                       (z/* (zs k)
-                           (z/->PolarComplex
+                           (z/polar->z
                             1
                             (/ (* 2 Math/PI j k) m)))))))
           (range m))))
