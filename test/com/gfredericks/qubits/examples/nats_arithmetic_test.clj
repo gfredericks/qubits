@@ -43,3 +43,24 @@
       (is (= (qs->n cs)
              (* (qs->n as)
                 (qs->n bs)))))))
+
+(deftest subtraction-test
+  (dotimes [_ 30]
+    (let [as (n->qs 5 0)
+          bs (n->qs 5 0)
+          cs (n->qs 5 0)
+          overflow? (q/qubit)]
+      (dotimes [i (count as)]
+        (when (zero? (rand-int 3))
+          (q/H (as i))))
+      (dotimes [i (count bs)]
+        (when (zero? (rand-int 3))
+          (q/H (bs i))))
+      (subtract as bs cs overflow?)
+      (let [a (qs->n as)
+            b (qs->n bs)
+            c (qs->n cs)
+            o? (= 1 (q/observe overflow?))]
+        (is (if o?
+              (> b a)
+              (and (<= b a) (= c (- a b)))))))))

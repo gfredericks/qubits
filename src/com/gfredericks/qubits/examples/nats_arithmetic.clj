@@ -64,10 +64,21 @@
       (q/X (qs' i) (qs i)))
     qs'))
 
+(defn negate
+  "XORs b with the two's complement of a."
+  [a b]
+  (let [a' (copy a)
+        one [(doto (q/qubit) (q/X))]]
+    (dotimes [i (count a')] (q/X (a' i)))
+    (add a' one (conj b (q/qubit)))))
+
 (defn subtract
   "XORs c with (a - b), and XORs the overflow qubit if a < b."
   [a b c overflow?]
   {:pre [(= (count a) (count b) (count c))]}
-  (let [a (copy a)]
-    ;; oh snap the long-carry thing will be difficult...
-    ))
+  (let [a (conj a (q/qubit))
+        b (conj b (q/qubit))
+        c (conj c overflow? (q/qubit))
+        b' (qvec (count b))]
+    (negate b b')
+    (add a b' c)))
