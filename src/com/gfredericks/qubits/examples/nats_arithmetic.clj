@@ -84,9 +84,36 @@
     (negate b b')
     (add a b' c)))
 
+(defn ^:private n->qs
+  [bits n]
+  (let [qs (qvec bits)]
+    (loop [i 0 n n]
+      (when (< i bits)
+        (if (odd? n) (q/X (qs i)))
+        (recur (inc i) (quot n 2))))
+    qs))
+
 (defn mod
   "Reduces a mod b and XORs the result into c."
   [a b c]
-  {:pre [(= (count b) (count c))]}
-  ;; Do we really need this to be fully quantum?
-  )
+  {:pre [(>= (count c) (.bitLength (biginteger (dec b))))]}
+  (let [max (apply * (repeat (count a) 2N))
+        multiples (->> (iterate #(* 2 %) b)
+                       (take-while #(< % max))
+                       (reverse))]
+    (loop [a a
+           multiples multiples]
+      (if-let [[x & xs] (seq multiples)]
+        (let [a' (qvec (count a))
+              a'' (qvec (count a))
+              xvec (n->qs (count a') x)
+              of? (q/qubit)]
+          (subtract a xvec a' of?)
+          (dotimes [i (count a)]
+            (q/X (a'' i) (a i) of?))
+          (q/X of?)
+          (dotimes [i (count a)]
+            (q/X (a'' i) (a' i) of?))
+          (recur a'' xs))
+        (dotimes [i (count c)]
+          (q/X (c i) (a i)))))))

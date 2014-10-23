@@ -1,4 +1,5 @@
 (ns com.gfredericks.qubits.examples.nats-arithmetic-test
+  (:refer-clojure :exclude [mod])
   (:require [clojure.test :refer :all]
             [com.gfredericks.qubits.examples.nats-arithmetic :refer :all]
             [com.gfredericks.qubits.objects :as q]))
@@ -64,3 +65,13 @@
         (is (if o?
               (> b a)
               (and (<= b a) (= c (- a b)))))))))
+
+(deftest mod-test
+  (dotimes [_ 10]
+    (let [b (+ 2 (rand-int 30))
+          as (n->qs 5 0)
+          cs (n->qs 5 0)]
+      (dotimes [i (count as)] (q/H (as i)))
+      (mod as b cs)
+      (let [a (qs->n as), c (qs->n cs)]
+        (is (= (clojure.core/mod a b) c))))))
