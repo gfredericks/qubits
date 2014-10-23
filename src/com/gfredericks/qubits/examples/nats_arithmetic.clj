@@ -1,6 +1,7 @@
 (ns com.gfredericks.qubits.examples.nats-arithmetic
   "Binary arithmetic with non-negative integers, represented as
   vectors of qubits."
+  (:refer-clojure :exclude [mod])
   (:require [com.gfredericks.qubits.objects :as q]))
 
 (defn qvec [n] (vec (repeatedly n q/qubit)))
@@ -82,3 +83,10 @@
         b' (qvec (count b))]
     (negate b b')
     (add a b' c)))
+
+(defn mod
+  "Reduces a mod b and XORs the result into c."
+  [a b c]
+  {:pre [(= (count b) (count c))]}
+  ;; Do we really need this to be fully quantum?
+  )
