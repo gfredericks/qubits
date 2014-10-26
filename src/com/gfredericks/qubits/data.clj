@@ -20,21 +20,17 @@
 (defn system?
   "Checks that m looks roughly like a decent system map."
   [m]
-  (and (vector? (:qubits m))
-       (map? (:amplitudes m))
-       (every? (fn [[vals amp]]
-                 (and (vector? vals)
-                      (every? #{0 1} vals)
-                      (satisfies? IComplex amp)))
-               (:amplitudes m))))
+  (= ::system (type m)))
 
 (defn single-qubit-system
   "Given a qubit and a 0/1, returns a system map that consists of just
    that qubit in the |0> state or the |1> state."
   [q v]
   {:pre [(#{0 1} v)]}
-  {:qubits [q]
-   :amplitudes {[v] z/ONE}})
+  (with-meta
+    {:qubits [q]
+     :amplitudes {[v] z/ONE}}
+    {:type ::system}))
 
 (defn merge-systems
   "Given two system maps, returns a new map with the systems merged."
@@ -45,7 +41,9 @@
           (for [[vs amp] (:amplitudes system1)
                 [vs' amp'] (:amplitudes system2)]
             [(into vs vs') (z/* amp amp')])]
-      {:qubits qs, :amplitudes (into {} amplitudes)})))
+      (with-meta
+        {:qubits qs, :amplitudes (into {} amplitudes)}
+        {:type ::system}))))
 
 (defn vec-remove
   [v i]
@@ -72,8 +70,10 @@
     (let [amplitudes' (into {}
                             (for [[vals amp] amplitudes]
                               [(vec-remove vals qi) amp]))]
-      {:qubits (vec-remove qubits qi)
-       :amplitudes amplitudes'})))
+      (with-meta
+        {:qubits (vec-remove qubits qi)
+         :amplitudes amplitudes'}
+        {:type ::system}))))
 
 (defn probabilities
   [system q]
