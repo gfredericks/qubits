@@ -3,15 +3,9 @@
   (:require [com.gfredericks.z :as z]
             [com.gfredericks.z.impl :refer [IComplex]]))
 
-(def ^:const TAU (* 2 Math/PI))
+(set! *warn-on-reflection* true)
 
-;; it feels messy to need indexOf. Should we be using maps instead?
-;;
-;; For that matter should we be using the term "PureState" instead of
-;; "system"?
-(defn index-of
-  [^clojure.lang.APersistentVector v x]
-  (.indexOf v x))
+(def ^:const TAU (* 2 Math/PI))
 
 (defn amplitude->probability
   [c]
@@ -28,15 +22,18 @@
   [q v]
   {:pre [(#{0 1} v)]}
   (with-meta
-    {:qubits [q]
+    {:qubits {q 0}
      :amplitudes {[v] z/ONE}}
     {:type ::system}))
 
 (defn merge-systems
   "Given two system maps, returns a new map with the systems merged."
   [system1 system2]
-  (let [qs (into (:qubits system1) (:qubits system2))]
-    (assert (apply distinct? qs) "Why do these systems already overlap?")
+  (let [system1-size (count (:qubits system1))
+        qs (into (:qubits system1)
+                 (for [[q idx] (:qubits system2)]
+                   [q (+ idx system1-size)]))]
+    (assert (apply distinct? (keys qs)) "Why do these systems already overlap?")
     (let [amplitudes
           (for [[vs amp] (:amplitudes system1)
                 [vs' amp'] (:amplitudes system2)]
@@ -54,7 +51,7 @@
         (pop v)
 
         :else
-        (into (subvec v 0 i) (rest (drop i v)))))
+        (into (subvec v 0 i) (subvec v (inc i)))))
 
 (defn factor-qubit-from-system
   "Given a system of at least two qubits, and one of the qubits from
@@ -63,22 +60,25 @@
    assumed to be unentangled."
   [system q]
   (let [{:keys [qubits amplitudes]} system
-        qi (index-of qubits q)]
+        qi (qubits q)]
     (assert (> (count qubits) 1))
     ;; check that it has the same value in all cases
     (assert (apply = (map #(% qi) (keys amplitudes))))
     (let [amplitudes' (into {}
                             (for [[vals amp] amplitudes]
-                              [(vec-remove vals qi) amp]))]
+                              [(vec-remove vals qi) amp]))
+          qubits' (into {}
+                        (for [[q idx] qubits]
+                          [q (cond-> idx (> idx qi) (dec))]))]
       (with-meta
-        {:qubits (vec-remove qubits qi)
+        {:qubits     qubits'
          :amplitudes amplitudes'}
         {:type ::system}))))
 
 (defn probabilities
   [system q]
   (let [{:keys [qubits amplitudes]} system
-        i (index-of qubits q)]
+        i (qubits q)]
     (reduce
      (fn [ret [vals amp]]
        (update-in ret [(nth vals i)] +
@@ -93,8 +93,8 @@
   [gate system q controls]
   {:post [(system? %)]}
   (let [{:keys [qubits amplitudes]} system
-        qi (index-of qubits q)
-        controls-i (map #(index-of qubits %) controls)
+        qi (qubits q)
+        controls-i (map qubits controls)
 
         new-amplitudes
         (->> (for [[vals amp] amplitudes
@@ -127,7 +127,7 @@
    probabilities, and returns [outcome new-system]."
   [system qubit]
   (let [{:keys [qubits amplitudes]} system
-        qi (index-of qubits qubit)
+        qi (qubits qubit)
         vals (weighted-choice
               (for [[vals amp] amplitudes]
                 [vals (amplitude->probability amp)]))
@@ -170,7 +170,7 @@
   else return nil."
   [system q]
   (let [{:keys [qubits amplitudes]} system
-        qi (index-of qubits q)
+        qi (qubits q)
         vals (->> amplitudes
                   keys
                   (map #(% qi)))]

@@ -61,7 +61,7 @@
   "Given a system-map, updates all the .system refs of the :qubits
    list to point to that map."
   [system]
-  (doseq [^Qubit q (:qubits system)]
+  (doseq [^Qubit q (keys (:qubits system))]
     (alter (.system q) (constantly system))))
 
 (defn merge-systems!
