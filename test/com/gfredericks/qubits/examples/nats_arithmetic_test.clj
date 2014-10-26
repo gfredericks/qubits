@@ -4,19 +4,6 @@
             [com.gfredericks.qubits.examples.nats-arithmetic :refer :all]
             [com.gfredericks.qubits.objects :as q]))
 
-(defn n->qs
-  [bits n]
-  (let [qs (qvec bits)]
-    (loop [i 0 n n]
-      (when (< i bits)
-        (if (odd? n) (q/X (qs i)))
-        (recur (inc i) (quot n 2))))
-    qs))
-
-(defn qs->n
-  [qs]
-  (apply + (map * (map q/observe qs) (iterate #(* % 2) 1))))
-
 (deftest addition-test
   (dotimes [_ 10]
     (let [as (n->qs 5 0)
