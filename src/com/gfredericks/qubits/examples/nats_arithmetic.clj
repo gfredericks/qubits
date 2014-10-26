@@ -128,15 +128,20 @@
 (defn mod-pow
   "XORs res with a^b mod n. n is a classical int."
   [a b n res]
-  (loop [a-pow a
-         bit 0
-         acc (qvec (count res))]
-    ;; we have to set acc to 1 I think
-    (if (= bit (count b))
-      (dotimes [i (count res)]
-        (q/X (res i) (acc i)))
-      (let [a-pow' (qvec (count a-pow))
-            acc' (qvec (count acc))]
-        (mult-mod a-pow a-pow n a-pow')
-        (mult-mod a-pow acc n acc' (b bit))
-        (recur a-pow' (inc bit) acc')))))
+  (let [acc (qvec (count res))]
+    (q/X (acc 0))
+    (loop [a-pow a
+           bit   0
+           acc   acc]
+      (if (= bit (count b))
+        (dotimes [i (count res)]
+          (q/X (res i) (acc i)))
+        (let [a-pow' (qvec (count a-pow))
+              acc' (qvec (count acc))]
+          (mult-mod a-pow a-pow n a-pow')
+          (mult-mod a-pow acc n acc' (b bit))
+          ;; just copy acc to acc' if the bit is 0
+          (with-flipped [(b bit)]
+            (dotimes [i (count acc)]
+              (q/X (acc' i) (acc i) (b bit))))
+          (recur a-pow' (inc bit) acc'))))))

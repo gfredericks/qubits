@@ -78,10 +78,11 @@
 
 (deftest mod-pow-test
   (dotimes [_ 10]
-    (let [as (n->qs 4 0)
-          bs (n->qs 4 0)
-          n (+ 2 (rand-int 15))
-          cs (n->qs 4 0)]
+    (let [bits 3
+          as (n->qs bits 0)
+          bs (n->qs bits 0)
+          n (+ 2 (rand-int (-> 1 (bit-shift-left bits) (dec))))
+          cs (n->qs bits 0)]
       (dotimes [i (count as)] (q/H (as i)))
       (dotimes [i (count bs)] (q/H (bs i)))
       (mod-pow as bs n cs)
