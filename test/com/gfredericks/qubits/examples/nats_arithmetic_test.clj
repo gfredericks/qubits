@@ -75,3 +75,17 @@
       (mod as b cs)
       (let [a (qs->n as), c (qs->n cs)]
         (is (= (clojure.core/mod a b) c))))))
+
+(deftest mod-pow-test
+  (dotimes [_ 10]
+    (let [as (n->qs 4 0)
+          bs (n->qs 4 0)
+          n (+ 2 (rand-int 15))
+          cs (n->qs 4 0)]
+      (dotimes [i (count as)] (q/H (as i)))
+      (dotimes [i (count bs)] (q/H (bs i)))
+      (mod-pow as bs n cs)
+      (let [a (qs->n as)
+            b (qs->n bs)
+            c (qs->n cs)]
+        (is (= c (clojure.core/mod (apply *' (repeat b a)) n)))))))

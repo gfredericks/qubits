@@ -47,8 +47,6 @@
   (loop [a a
          i 0
          acc (qvec (count a))]
-    #_(clojure.pprint/pprint
-     {:a a :b b :acc acc})
     (if (= i (count b))
       (dotimes [i (count c)]
         (q/X (c i) (acc i)))
@@ -94,11 +92,14 @@
     qs))
 
 (defn mod
-  "Reduces a mod b and XORs the result into c."
-  [a b c]
-  {:pre [(>= (count c) (.bitLength (biginteger (dec b))))]}
+  "Reduces a mod n and XORs the result into res. n is a classical
+  int."
+  [a n res & controls]
+  {:pre [(>= (count res) (.bitLength (biginteger (dec n))))]}
+  ;; What would it take to make n quantum? I don't think it would be
+  ;; too hard.
   (let [max (apply * (repeat (count a) 2N))
-        multiples (->> (iterate #(* 2 %) b)
+        multiples (->> (iterate #(* 2 %) n)
                        (take-while #(< % max))
                        (reverse))]
     (loop [a a
@@ -115,5 +116,27 @@
           (dotimes [i (count a)]
             (q/X (a'' i) (a' i) of?))
           (recur a'' xs))
-        (dotimes [i (count c)]
-          (q/X (c i) (a i)))))))
+        (dotimes [i (count res)]
+          (apply q/X (res i) (a i) controls))))))
+
+(defn mult-mod
+  [a b n res & controls]
+  (let [inter (qvec (+ (count a) (count b)))]
+    (multiply a b inter)
+    (apply mod inter n res controls)))
+
+(defn mod-pow
+  "XORs res with a^b mod n. n is a classical int."
+  [a b n res]
+  (loop [a-pow a
+         bit 0
+         acc (qvec (count res))]
+    ;; we have to set acc to 1 I think
+    (if (= bit (count b))
+      (dotimes [i (count res)]
+        (q/X (res i) (acc i)))
+      (let [a-pow' (qvec (count a-pow))
+            acc' (qvec (count acc))]
+        (mult-mod a-pow a-pow n a-pow')
+        (mult-mod a-pow acc n acc' (b bit))
+        (recur a-pow' (inc bit) acc')))))
