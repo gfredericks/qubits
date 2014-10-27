@@ -99,6 +99,20 @@
   [q theta & controls]
   (apply (single-qubit-gate-fn (data/phase-gate theta)) q controls))
 
+(defn SWAP
+  [q1 q2]
+  ;; this could be done without an extra qubit if implemented at a
+  ;; lower level (i.e., in the .data namespace)
+  (let [q3 (qubit)]
+    (X q3 q1)
+    (X q1 q3)
+    (X q1 q2)
+    (X q2 q1)
+    (X q2 q3)
+    (X q3 q2)
+    (observe q3))
+  nil)
+
 (defn observe
   "Returns 0 or 1."
   [^Qubit q]
