@@ -39,7 +39,6 @@
     (q/H output)
     (f inputs output)
     (doseq [input inputs] (q/H input))
-    (map q/observe inputs)
     (case (q/observe (first inputs))
       0 :constant
       1 :balanced)))
